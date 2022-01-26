@@ -9,10 +9,7 @@ import { flatColor, removeTags } from '../Shared/Shared';
 alt.onClient("chat:onMessage", function(player, message)
 {
     message = removeTags(message);
-    
-    alt.Player.all.forEach(p => {
-        p.emit("chat:addMessage", `{${player.getLocalMeta("color")}}${player.name}(${player.id}): {#FFF}${message}`);
-    })
+    alt.emitAllClients("chat:addMessage", `{${player.getLocalMeta("color")}}${player.name}(${player.id}): {#FFF}${message}`);
 });
 
 //Set players color on resource start
