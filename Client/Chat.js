@@ -4,17 +4,30 @@ import { colorifyText } from "../Shared/Shared";
 
 export class Chat
 {
-    constructor(maxMessage = 50, time = 6000)
+    constructor(settings)
     {
         alt.loadRmlFont("./rml/fonts/Roboto-Bold.ttf", "RobotoBold", false, true);
         alt.loadRmlFont("./rml/fonts/Raleway-Bold.ttf", "RalewayBold", false, true);
         alt.loadRmlFont("./rml/fonts/Inter-Bold.ttf", "InterBold", false, true);
         alt.toggleRmlControls(false);
 
+        this.settings = {
+            maxMessage: 50,
+
+            fadeTime: 6000,
+            fadeFrom: 1.0,
+            fadeTo: 0.3,
+
+            emitMessages: true,
+            emitCommands: true,
+
+            serverMessages: true
+        };
+        this.settings = Object.assign({}, this.settings, settings);
+
         this.document = new alt.RmlDocument("./rml/index.rml");
         this.chatInput = this.document.getElementByID("chatInput");
         this.chatMessages = this.document.getElementByID("chatMessages");
-        this.maxMessage = maxMessage;
         this.timestamp = false;
         this.visible = true;
 
@@ -38,17 +51,39 @@ export class Chat
         this.fadeSettings = {
             startTime: null,
             endTime: null,
-            fadeTime: time,
+            fadeTime: this.settings.fadeTime,
 
             inProgress: false,
             tickHandler: null,
 
-            fromOpacity: 1.0,
-            toOpacity: 0.3,
+            fromOpacity: this.settings.fadeFrom,
+            toOpacity: this.settings.fadeTo,
             opacity: 1.0,
         };
 
+        //Key presses
         alt.on("keydown", (key) => this._handleKeyDown(key));
+
+        //Handle outgoing messages to the server
+        if(this.settings.emitMessages)
+        {
+            this.on("text", (str) => alt.emitServer("chat:onMessage", str));
+        }
+
+        //Handle outgoing commands to the server
+        if(this.settings.emitCommands)
+        {
+            this.on("command", (commandFound, commandName, ...commandArgs) => {
+                if(!commandFound)
+                    alt.emitServer("chat:events:onCommand", commandName, ...commandArgs);
+            });
+        }
+
+        //Handle server messages
+        if(this.settings.serverMessages)
+        {
+            alt.onServer("chat:addMessage", (message) => chat.addMessage(message));
+        }
     }
 
     _emit(eventName, ...args)
@@ -126,8 +161,8 @@ export class Chat
         this._emit("message", str);
 
         const allMessages = this.chatMessages.querySelectorAll("#message");
-        if(allMessages.length > this.maxMessage)
-            allMessages.slice(0, allMessages.length - this.maxMessage).forEach(e => this.chatMessages.removeChild(e));
+        if(allMessages.length > this.settings.maxMessage)
+            allMessages.slice(0, allMessages.length - this.settings.maxMessage).forEach(e => this.chatMessages.removeChild(e));
 
         if(!this.fadeSettings.isFadedIn)
             this.fadeMessages(true);
@@ -281,11 +316,15 @@ export class Chat
 
                 let commandFound = false;
                 if(commandArgs === undefined)
+                {
                     commandFound = this._executeCommand(commandName);
+                    this._emit("command", commandFound, commandName);
+                }
                 else
+                {
                     commandFound = this._executeCommand(commandName, ...commandArgs);
-                
-                this._emit("command", commandName, commandFound);
+                    this._emit("command", commandFound, commandName, ...commandArgs);
+                }
             } else
                 this._emit("text", message);
 

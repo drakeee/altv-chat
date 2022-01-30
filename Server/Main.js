@@ -3,17 +3,18 @@
 
 import alt from 'alt-server';
 
-import { flatColor, removeTags } from '../Shared/Shared';
+import { Chat } from './Chat';
 
-//Forward message to players
-alt.onClient("chat:onMessage", function(player, message)
-{
-    message = removeTags(message);
-    alt.emitAllClients("chat:addMessage", `{${player.getLocalMeta("color")}}${player.name}(${player.id}): {#FFF}${message}`);
+const chat = new Chat({
+    //handleIncomingMessages: false,
+    //enablePlayerColor: false
 });
 
-//Set players color on resource start
-alt.on("resourceStart", () => alt.Player.all.forEach(p => p.setLocalMeta("color", flatColor().hex)));
+chat.registerCommand("test", (player, ...args) => {
+    alt.log("Test command performed: ", player.name, args);
+    alt.log("Args size: ", args.length);
+});
 
-//Set player's color on connect
-alt.on("playerConnect", (player) => player.setLocalMeta("color", flatColor().hex));
+chat.on("text", (player, message) => {
+    alt.log("Player inputted: " + player, message);
+});
